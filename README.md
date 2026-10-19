@@ -14,7 +14,7 @@
 
 ## Overview
 
-Foot drop—caused by upper motor neuron lesions from stroke, multiple sclerosis, or incomplete spinal cord injury—impedes voluntary ankle dorsiflexion during the swing phase of walking. Passive Ankle-Foot Orthoses (AFOs) immobilize the joint, leading to muscle atrophy and compensatory gait movements.
+Foot drop caused by upper motor neuron lesions from stroke, multiple sclerosis, or incomplete spinal cord injury impedes voluntary ankle dorsiflexion during the swing phase of walking. Passive Ankle-Foot Orthoses (AFOs) immobilize the joint, leading to muscle atrophy and compensatory gait movements.
 
 **StrideX** is an active, wearable, closed-loop cyber-physical orthosis. Using multi-modal sensor fusion and on-device machine learning, it detects gait phase transitions in real time and delivers charge-balanced, constant-current biphasic electrical stimulation to the common peroneal nerve and tibialis anterior muscle during pre-swing and swing phases. Telemetry streams via BLE 5.3 to a mobile app and cloud platform for gait analysis and remote clinician prescription management.
 
@@ -25,34 +25,39 @@ Foot drop—caused by upper motor neuron lesions from stroke, multiple sclerosis
 ```mermaid
 flowchart LR
     subgraph SENSORS["Sensing Frontend"]
-        IMU["Dual 9-DOF IMUs\n(200 Hz SPI)"]
-        FSR["4x Insole FSRs\n(Buffered ADC)"]
+        IMU["Dual 9-DOF IMUs<br/>(200 Hz SPI)"]
+        FSR["4x Insole FSRs<br/>(Buffered ADC)"]
     end
 
     subgraph MCU["ESP32-S3 Dual-Core (240 MHz)"]
         direction TB
-        C0["Core 0: 200 Hz Gait FSM\nMadgwick Filter & PID Loop"]
-        C1["Core 1: TFLite 1D-CNN (Stair/Stand Inhibit)\nNimBLE 5.3 Server & 50 kHz Detachment Check"]
+        C0["Core 0: Real-Time Plant<br/>200 Hz Gait FSM, Madgwick & PID"]
+        C1["Core 1: ML & Telemetry<br/>1D-CNN Inhibit & NimBLE 5.3 Server"]
     end
 
-    subgraph OUTPUT["Analog Stimulation & Safety"]
+    subgraph OUTPUT["Analog Output & Safety"]
         direction TB
-        BOOST["Dynamic Boost\n(45V-90V DC)"]
-        HOWLAND["Howland Pump\n(10-60 mA)"]
-        HBRIDGE["HV MOSFET\nH-Bridge"]
-        SAFETY["Hardware Safety: Crowbar + PTC\nDC-Blocking Caps | 50ms Watchdog"]
+        BOOST["Dynamic Boost<br/>(45V - 90V DC)"]
+        HOWLAND["Howland Current Pump<br/>(10 - 60 mA)"]
+        HBRIDGE["HV MOSFET H-Bridge<br/>(Biphasic Pulses)"]
+        SAFETY["Hardware Safety Network<br/>Crowbar + PTC | DC Caps | Watchdog"]
     end
 
     subgraph CLOUD["Mobile & Cloud"]
-        MOBILE["Patient App (React Native)\nSQLite Offline Buffer"]
-        BACKEND["TimescaleDB + PostgreSQL\nClinician Web Dashboard (Next.js)"]
+        MOBILE["Patient App (React Native)<br/>SQLite Offline Buffer"]
+        BACKEND["TimescaleDB + PostgreSQL<br/>Clinician Web Dashboard"]
     end
 
-    IMU & FSR --> MCU
-    MCU --> BOOST & HOWLAND --> HBRIDGE --> SAFETY
-    SAFETY -->|Biphasic Pulses| TARGET["Common Peroneal Nerve &\nTibialis Anterior"]
-    MCU <-->|BLE 5.3 (50 Hz)| MOBILE
-    MOBILE <-->|TLS 1.3| BACKEND
+    IMU --> C0
+    FSR --> C0
+    C0 --> C1
+    C0 --> BOOST
+    BOOST --> HOWLAND
+    HOWLAND --> HBRIDGE
+    HBRIDGE --> SAFETY
+    SAFETY --> TARGET["Common Peroneal Nerve and<br/>Tibialis Anterior"]
+    C1 <-->|"BLE 5.3 (50 Hz)"| MOBILE
+    MOBILE <-->|"TLS 1.3"| BACKEND
 ```
 
 ---
